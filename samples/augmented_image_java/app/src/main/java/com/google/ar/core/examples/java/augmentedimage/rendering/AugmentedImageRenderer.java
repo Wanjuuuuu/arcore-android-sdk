@@ -16,52 +16,36 @@
 package com.google.ar.core.examples.java.augmentedimage.rendering;
 
 import android.content.Context;
+
 import com.google.ar.core.Anchor;
 import com.google.ar.core.AugmentedImage;
 import com.google.ar.core.Pose;
 import com.google.ar.core.examples.java.common.rendering.ObjectRenderer;
-import com.google.ar.core.examples.java.common.rendering.ObjectRenderer.BlendMode;
+
 import java.io.IOException;
 
-/** Renders an augmented image. */
+/**
+ * Renders an augmented image.
+ */
 public class AugmentedImageRenderer {
   private static final String TAG = "AugmentedImageRenderer";
 
   private static final float TINT_INTENSITY = 0.1f;
   private static final float TINT_ALPHA = 1.0f;
   private static final int[] TINT_COLORS_HEX = {
-    0x000000, 0xF44336, 0xE91E63, 0x9C27B0, 0x673AB7, 0x3F51B5, 0x2196F3, 0x03A9F4, 0x00BCD4,
-    0x009688, 0x4CAF50, 0x8BC34A, 0xCDDC39, 0xFFEB3B, 0xFFC107, 0xFF9800,
+      0x000000, 0xF44336, 0xE91E63, 0x9C27B0, 0x673AB7, 0x3F51B5, 0x2196F3, 0x03A9F4, 0x00BCD4,
+      0x009688, 0x4CAF50, 0x8BC34A, 0xCDDC39, 0xFFEB3B, 0xFFC107, 0xFF9800,
   };
 
-  private final ObjectRenderer imageFrameUpperLeft = new ObjectRenderer();
-  private final ObjectRenderer imageFrameUpperRight = new ObjectRenderer();
-  private final ObjectRenderer imageFrameLowerLeft = new ObjectRenderer();
-  private final ObjectRenderer imageFrameLowerRight = new ObjectRenderer();
+  private final ObjectRenderer mazeRenderer = new ObjectRenderer();
 
-  public AugmentedImageRenderer() {}
+  public AugmentedImageRenderer() {
+  }
 
   public void createOnGlThread(Context context) throws IOException {
-
-    imageFrameUpperLeft.createOnGlThread(
-        context, "models/frame_upper_left.obj", "models/frame_base.png");
-    imageFrameUpperLeft.setMaterialProperties(0.0f, 3.5f, 1.0f, 6.0f);
-    imageFrameUpperLeft.setBlendMode(BlendMode.AlphaBlending);
-
-    imageFrameUpperRight.createOnGlThread(
-        context, "models/frame_upper_right.obj", "models/frame_base.png");
-    imageFrameUpperRight.setMaterialProperties(0.0f, 3.5f, 1.0f, 6.0f);
-    imageFrameUpperRight.setBlendMode(BlendMode.AlphaBlending);
-
-    imageFrameLowerLeft.createOnGlThread(
-        context, "models/frame_lower_left.obj", "models/frame_base.png");
-    imageFrameLowerLeft.setMaterialProperties(0.0f, 3.5f, 1.0f, 6.0f);
-    imageFrameLowerLeft.setBlendMode(BlendMode.AlphaBlending);
-
-    imageFrameLowerRight.createOnGlThread(
-        context, "models/frame_lower_right.obj", "models/frame_base.png");
-    imageFrameLowerRight.setMaterialProperties(0.0f, 3.5f, 1.0f, 6.0f);
-    imageFrameLowerRight.setBlendMode(BlendMode.AlphaBlending);
+    mazeRenderer.createOnGlThread(context, "models/green-maze/GreenMaze.obj", "models/frame_base" +
+        ".png");
+    mazeRenderer.setMaterialProperties(0.0f, 3.5f, 1.0f, 6.0f);
   }
 
   public void draw(
@@ -73,49 +57,28 @@ public class AugmentedImageRenderer {
     float[] tintColor =
         convertHexToColor(TINT_COLORS_HEX[augmentedImage.getIndex() % TINT_COLORS_HEX.length]);
 
-    Pose[] localBoundaryPoses = {
-      Pose.makeTranslation(
-          -0.5f * augmentedImage.getExtentX(),
-          0.0f,
-          -0.5f * augmentedImage.getExtentZ()), // upper left
-      Pose.makeTranslation(
-          0.5f * augmentedImage.getExtentX(),
-          0.0f,
-          -0.5f * augmentedImage.getExtentZ()), // upper right
-      Pose.makeTranslation(
-          0.5f * augmentedImage.getExtentX(),
-          0.0f,
-          0.5f * augmentedImage.getExtentZ()), // lower right
-      Pose.makeTranslation(
-          -0.5f * augmentedImage.getExtentX(),
-          0.0f,
-          0.5f * augmentedImage.getExtentZ()) // lower left
-    };
+    final float mazeEdgeSize = 492.65f; // magic number of maze size
+    final float maxImageEdgeSize = Math.max(augmentedImage.getExtentX(),
+        augmentedImage.getExtentZ());
+    // largest edge size of detected image
 
     Pose anchorPose = centerAnchor.getPose();
-    Pose[] worldBoundaryPoses = new Pose[4];
-    for (int i = 0; i < 4; ++i) {
-      worldBoundaryPoses[i] = anchorPose.compose(localBoundaryPoses[i]);
-    }
 
-    float scaleFactor = 1.0f;
+    float mazeScaleFactor = maxImageEdgeSize / mazeEdgeSize;
     float[] modelMatrix = new float[16];
 
-    worldBoundaryPoses[0].toMatrix(modelMatrix, 0);
-    imageFrameUpperLeft.updateModelMatrix(modelMatrix, scaleFactor);
-    imageFrameUpperLeft.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
-
-    worldBoundaryPoses[1].toMatrix(modelMatrix, 0);
-    imageFrameUpperRight.updateModelMatrix(modelMatrix, scaleFactor);
-    imageFrameUpperRight.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
-
-    worldBoundaryPoses[2].toMatrix(modelMatrix, 0);
-    imageFrameLowerRight.updateModelMatrix(modelMatrix, scaleFactor);
-    imageFrameLowerRight.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
-
-    worldBoundaryPoses[3].toMatrix(modelMatrix, 0);
-    imageFrameLowerLeft.updateModelMatrix(modelMatrix, scaleFactor);
-    imageFrameLowerLeft.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
+    // OpenGL Matrix operation is in the order: Scale, rotation and Translation
+    // So the manual adjustment is after scale
+    // The 251.3f and 129.0f is magic number from the maze obj file
+    // We need to do this adjustment because the maze obj file
+    // is not centered around origin. Normally when you
+    // work with your own model, you don't have this problem.
+    Pose mazeModelLocalOffset = Pose.makeTranslation(-251.3f * mazeScaleFactor, 0.0f,
+        129.0f * mazeScaleFactor);
+    anchorPose.compose(mazeModelLocalOffset).toMatrix(modelMatrix, 0);
+    mazeRenderer.updateModelMatrix(modelMatrix, mazeScaleFactor, mazeScaleFactor / 10.0f,
+        mazeScaleFactor);
+    mazeRenderer.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
   }
 
   private static float[] convertHexToColor(int colorHex) {
@@ -123,6 +86,6 @@ public class AugmentedImageRenderer {
     float red = ((colorHex & 0xFF0000) >> 16) / 255.0f * TINT_INTENSITY;
     float green = ((colorHex & 0x00FF00) >> 8) / 255.0f * TINT_INTENSITY;
     float blue = (colorHex & 0x0000FF) / 255.0f * TINT_INTENSITY;
-    return new float[] {red, green, blue, TINT_ALPHA};
+    return new float[]{red, green, blue, TINT_ALPHA};
   }
 }
