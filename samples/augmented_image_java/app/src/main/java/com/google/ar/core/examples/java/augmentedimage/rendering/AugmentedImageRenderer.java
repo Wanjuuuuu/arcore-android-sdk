@@ -40,6 +40,8 @@ public class AugmentedImageRenderer {
   private final ObjectRenderer mazeRenderer = new ObjectRenderer();
   private final ObjectRenderer andyRenderer = new ObjectRenderer();
 
+  private Pose andyPose = Pose.IDENTITY;
+
   public AugmentedImageRenderer() {
   }
 
@@ -85,8 +87,14 @@ public class AugmentedImageRenderer {
     mazeRenderer.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
 
     // Make andy standing on top of the maze
-    Pose andyModelLocalOffset = Pose.makeTranslation(0.0f, 0.1f, 0.0f);
-    anchorPose.compose(andyModelLocalOffset).toMatrix(modelMatrix, 0);
+    // Adjust the Andy's rendering position
+    // The Andy's pose is at the maze's vertex's coordinate
+    // The Andy's pose is at the maze's vertex's coordinate
+    Pose andyPoseInImageSpace = Pose.makeTranslation(
+        andyPose.tx() * mazeScaleFactor,
+        andyPose.ty() * mazeScaleFactor,
+        andyPose.tz() * mazeScaleFactor);
+    anchorPose.compose(andyPoseInImageSpace).toMatrix(modelMatrix, 0);
     andyRenderer.updateModelMatrix(modelMatrix, 0.05f);
     andyRenderer.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
   }
@@ -97,5 +105,9 @@ public class AugmentedImageRenderer {
     float green = ((colorHex & 0x00FF00) >> 8) / 255.0f * TINT_INTENSITY;
     float blue = (colorHex & 0x0000FF) / 255.0f * TINT_INTENSITY;
     return new float[]{red, green, blue, TINT_ALPHA};
+  }
+
+  public void updateAndyPose(Pose pose) {
+    andyPose = pose;
   }
 }

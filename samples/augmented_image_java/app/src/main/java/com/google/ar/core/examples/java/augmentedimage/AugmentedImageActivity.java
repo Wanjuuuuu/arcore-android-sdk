@@ -37,6 +37,7 @@ import com.google.ar.core.AugmentedImageDatabase;
 import com.google.ar.core.Camera;
 import com.google.ar.core.Config;
 import com.google.ar.core.Frame;
+import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
 import com.google.ar.core.examples.java.augmentedimage.rendering.AugmentedImageRenderer;
 import com.google.ar.core.examples.java.common.helpers.CameraPermissionHelper;
@@ -95,6 +96,8 @@ public class AugmentedImageActivity extends AppCompatActivity implements GLSurfa
   // the
   // database.
   private final Map<Integer, Pair<AugmentedImage, Anchor>> augmentedImageMap = new HashMap<>();
+
+  private PhysicsController physicsController;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -336,11 +339,24 @@ public class AugmentedImageActivity extends AppCompatActivity implements GLSurfa
                 }
               });
 
-          // Create a new anchor for newly found images.
-          if (!augmentedImageMap.containsKey(augmentedImage.getIndex())) {
+          if (augmentedImageMap.containsKey(augmentedImage.getIndex())) {
+            Pose ballPose = physicsController.getBallPose();
+            augmentedImageRenderer.updateAndyPose(ballPose);
+
+            // Use real world gravity, (0, -10, 0), as gravity
+            // Convert to Physics world coordinate(maze mesh has to be static)
+            // Use the converted coordinate as a force to move the ball
+            Pose worldGravityPose = Pose.makeTranslation(0, -10f, 0);
+            Pose mazeGravityPose = augmentedImage.getCenterPose().inverse().compose(worldGravityPose);
+            float[] mazeGravity = mazeGravityPose.getTranslation();
+            physicsController.applyGravityToBall(mazeGravity);
+            physicsController.updatePhysics();
+          } else {
+            // Create a new anchor for newly found images.
             Anchor centerPoseAnchor = augmentedImage.createAnchor(augmentedImage.getCenterPose());
             augmentedImageMap.put(
                 augmentedImage.getIndex(), Pair.create(augmentedImage, centerPoseAnchor));
+            physicsController = new PhysicsController(this);
           }
           break;
 
