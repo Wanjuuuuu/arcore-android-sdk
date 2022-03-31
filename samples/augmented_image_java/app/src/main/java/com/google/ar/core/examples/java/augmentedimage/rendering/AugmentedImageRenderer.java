@@ -38,6 +38,7 @@ public class AugmentedImageRenderer {
   };
 
   private final ObjectRenderer mazeRenderer = new ObjectRenderer();
+  private final ObjectRenderer andyRenderer = new ObjectRenderer();
 
   public AugmentedImageRenderer() {
   }
@@ -46,6 +47,9 @@ public class AugmentedImageRenderer {
     mazeRenderer.createOnGlThread(context, "models/green-maze/GreenMaze.obj", "models/frame_base" +
         ".png");
     mazeRenderer.setMaterialProperties(0.0f, 3.5f, 1.0f, 6.0f);
+
+    andyRenderer.createOnGlThread(context, "models/andy.obj", "models/andy.png");
+    andyRenderer.setMaterialProperties(0.0f, 3.5f, 1.0f, 6.0f);
   }
 
   public void draw(
@@ -79,6 +83,12 @@ public class AugmentedImageRenderer {
     mazeRenderer.updateModelMatrix(modelMatrix, mazeScaleFactor, mazeScaleFactor / 10.0f,
         mazeScaleFactor);
     mazeRenderer.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
+
+    // Make andy standing on top of the maze
+    Pose andyModelLocalOffset = Pose.makeTranslation(0.0f, 0.1f, 0.0f);
+    anchorPose.compose(andyModelLocalOffset).toMatrix(modelMatrix, 0);
+    andyRenderer.updateModelMatrix(modelMatrix, 0.05f);
+    andyRenderer.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
   }
 
   private static float[] convertHexToColor(int colorHex) {
